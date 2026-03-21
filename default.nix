@@ -1,8 +1,12 @@
 {buildGoModule}:
-buildGoModule {
-  pname = "luks-network-unlock";
+buildGoModule rec {
+  pname = "network-unlock";
   version = "0.1.0";
   src = ./.;
   vendorHash = "sha256-lMELol//HudCZk0BdKdfsbJ1y2r6dWMxfYfnskKdJMo=";
-  meta.mainProgram = "luks-network-unlock";
+
+  ldflags = ["-s -w -X main.Version=${version}"];
+  env.CGO_ENABLED = 0;
+
+  meta.mainProgramz = pname;
 }

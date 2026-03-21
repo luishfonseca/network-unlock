@@ -1,16 +1,22 @@
 {
-  description = "A very basic flake";
-
   inputs = {
     nixpkgs.url = "github:nixos/nixpkgs/nixos-unstable";
     systems.url = "github:nix-systems/default";
   };
 
-  outputs = { self, systems, nixpkgs }: let
+  outputs = {
+    self,
+    systems,
+    nixpkgs,
+  }: let
     eachSystem = nixpkgs.lib.genAttrs (import systems);
+    pkgs = eachSystem (system: import nixpkgs {inherit system;});
   in {
-    packages = eachSystem (system: {
-      default = (import nixpkgs { inherit system; }).callPackage ./. {};
+    packages = eachSystem (system: rec {
+      network-unlock = pkgs.${system}.callPackage ./. {};
+      default = network-unlock;
     });
+
+    formatter = eachSystem (system: pkgs.${system}.alejandra);
   };
 }

@@ -1,4 +1,4 @@
-module lhf.pt/luks-network-unlock
+module github.com/luishfonseca/network-unlock
 
 go 1.25.6
 
