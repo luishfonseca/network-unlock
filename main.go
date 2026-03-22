@@ -92,6 +92,27 @@ func main() {
 					},
 				},
 			},
+			{
+				Name:    "unlock",
+				Aliases: []string{"u"},
+				Action:  cmd.Unlock,
+				Flags: []cli.Flag{
+					&cmd.IPFlag{
+						Name:        "self-external",
+						DefaultText: "any",
+						Aliases:     []string{"sext"},
+					},
+					&cmd.IPFlag{
+						Required: true,
+						Name:     "peer-public",
+						Aliases:  []string{"ppub"},
+					},
+					&cli.StringFlag{
+						Name:  "boot",
+						Value: "/sysroot/boot",
+					},
+				},
+			},
 		},
 		Flags: []cli.Flag{
 			&cli.Uint16Flag{
