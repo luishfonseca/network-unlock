@@ -4,6 +4,7 @@ import (
 	"context"
 	"log"
 	"os"
+	"os/exec"
 	"time"
 
 	"github.com/luishfonseca/network-unlock/cmd"
@@ -60,6 +61,26 @@ func main() {
 						Required: true,
 						Name:     "peer-internal",
 						Aliases:  []string{"pint"},
+					},
+					&cli.StringFlag{
+						Required: true,
+						Name:     "cryptsetup",
+						Validator: func(s string) error {
+							_, err := exec.LookPath(s)
+							return err
+						},
+					},
+					&cli.StringFlag{
+						Name:  "crypt",
+						Value: "/dev/mapper/root_crypt",
+					},
+					&cli.StringFlag{
+						Name:  "luksKey",
+						Value: "/recovery/root.key",
+					},
+					&cli.IntFlag{
+						Name:  "luksSlot",
+						Value: 7,
 					},
 					&cli.StringFlag{
 						Name:  "boot",
