@@ -22,17 +22,17 @@ func main() {
 				Flags: []cli.Flag{
 					&cmd.IPFlag{
 						Required: true,
-						Name:     "internal-address",
+						Name:     "internal",
 						Aliases:  []string{"int"},
 					},
 					&cmd.IPFlag{
-						Name:        "external-address",
-						DefaultText: "public-address",
+						Name:        "external",
+						DefaultText: "public",
 						Aliases:     []string{"ext"},
 					},
 					&cmd.IPFlag{
 						Required: true,
-						Name:     "public-address",
+						Name:     "public",
 						Aliases:  []string{"pub"},
 					},
 					&cli.Uint16Flag{
