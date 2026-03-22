@@ -157,6 +157,21 @@ func ServeUnlock(ctx context.Context, ttl time.Duration, cert tls.Certificate, a
 	}).ListenAndServeTLS("", "")
 }
 
+func CleanupEntries(ttl time.Duration) int {
+	count := 0
+
+	mu.Lock()
+	for fp, entry := range stored {
+		if time.Since(entry.when) > ttl {
+			delete(stored, fp)
+			count++
+		}
+	}
+	mu.Unlock()
+
+	return count
+}
+
 func parseIP(addr string) (ip net.IP, err error) {
 	if addr, _, err = net.SplitHostPort(addr); err != nil {
 		return
