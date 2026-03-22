@@ -3,7 +3,9 @@ package cmd
 import (
 	"context"
 	"crypto/tls"
+	"fmt"
 	"log"
+	"net"
 
 	"github.com/luishfonseca/network-unlock/lib"
 	"github.com/urfave/cli/v3"
@@ -11,8 +13,8 @@ import (
 
 func Serve(ctx context.Context, cmd *cli.Command) (err error) {
 	var cert tls.Certificate
-	log.Printf("Generating certificate for public address %s", cmd.String("public-address"))
-	if cert, err = lib.GenerateCertificate("network-unlock-server", cmd.String("public-address")); err != nil {
+	log.Printf("Generating certificate for public address %s", cmdIP(cmd, "public-address"))
+	if cert, err = lib.GenerateCertificate("network-unlock-server", []net.IP{cmdIP(cmd, "public-address")}); err != nil {
 		return err
 	}
 
@@ -21,19 +23,22 @@ func Serve(ctx context.Context, cmd *cli.Command) (err error) {
 	defer cancel()
 
 	go func() {
-		log.Printf("Register server starting on internal address: %s:%d", cmd.String("internal-address"), cmd.Uint16("port"))
-		err := lib.ServeRegister(childCtx, cert, cmd.String("internal-address"), cmd.Uint16("port"))
+		internal := fmt.Sprintf("%s:%d", cmdIP(cmd, "internal-address"), cmd.Uint16("port"))
+		log.Printf("Register server starting on internal address: %s", internal)
+		err := lib.ServeRegister(childCtx, cert, internal)
 		errCh <- err
 	}()
 
 	go func() {
-		externalAddress := cmd.String("external-address")
-		if externalAddress == "" {
-			externalAddress = cmd.String("public-address")
+		var external string
+		if cmdIP(cmd, "external-address") != nil {
+			external = fmt.Sprintf("%s:%d", cmdIP(cmd, "external-address"), cmd.Uint16("port"))
+		} else {
+			external = fmt.Sprintf("%s:%d", cmdIP(cmd, "public-address"), cmd.Uint16("port"))
 		}
 
-		log.Printf("Unlock server starting on external address: %s:%d", externalAddress, cmd.Uint16("port"))
-		errCh <- lib.ServeUnlock(childCtx, cmd.Duration("ttl"), cert, externalAddress, cmd.Uint16("port"))
+		log.Printf("Unlock server starting on external address: %s", external)
+		errCh <- lib.ServeUnlock(childCtx, cmd.Duration("ttl"), cert, external)
 	}()
 
 	return <-errCh

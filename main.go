@@ -20,16 +20,17 @@ func main() {
 				Aliases: []string{"s"},
 				Action:  cmd.Serve,
 				Flags: []cli.Flag{
-					&cli.StringFlag{
+					&cmd.IPFlag{
 						Required: true,
 						Name:     "internal-address",
 						Aliases:  []string{"int"},
 					},
-					&cli.StringFlag{
-						Name:    "external-address",
-						Aliases: []string{"ext"},
+					&cmd.IPFlag{
+						Name:        "external-address",
+						DefaultText: "public-address",
+						Aliases:     []string{"ext"},
 					},
-					&cli.StringFlag{
+					&cmd.IPFlag{
 						Required: true,
 						Name:     "public-address",
 						Aliases:  []string{"pub"},

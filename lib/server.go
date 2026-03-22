@@ -31,7 +31,7 @@ var (
 	stored map[Fingerprint]*Entry = map[Fingerprint]*Entry{}
 )
 
-func ServeRegister(ctx context.Context, cert tls.Certificate, addr string, port uint16) error {
+func ServeRegister(ctx context.Context, cert tls.Certificate, addr string) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/register/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -83,7 +83,7 @@ func ServeRegister(ctx context.Context, cert tls.Certificate, addr string, port 
 	})
 
 	return (&http.Server{
-		Addr:    fmt.Sprintf("%s:%d", addr, port),
+		Addr:    addr,
 		Handler: mux,
 		TLSConfig: &tls.Config{
 			Certificates: []tls.Certificate{cert},
@@ -93,7 +93,7 @@ func ServeRegister(ctx context.Context, cert tls.Certificate, addr string, port 
 	}).ListenAndServeTLS("", "")
 }
 
-func ServeUnlock(ctx context.Context, ttl time.Duration, cert tls.Certificate, addr string, port uint16) error {
+func ServeUnlock(ctx context.Context, ttl time.Duration, cert tls.Certificate, addr string) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/unlock", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -147,7 +147,7 @@ func ServeUnlock(ctx context.Context, ttl time.Duration, cert tls.Certificate, a
 	})
 
 	return (&http.Server{
-		Addr:    fmt.Sprintf("%s:%d", addr, port),
+		Addr:    addr,
 		Handler: mux,
 		TLSConfig: &tls.Config{
 			Certificates: []tls.Certificate{cert},

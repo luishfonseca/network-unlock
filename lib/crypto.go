@@ -15,7 +15,7 @@ import (
 )
 
 // https://shaneutt.com/blog/golang-ca-and-signed-cert-go/
-func GenerateCertificate(cn string, ip string) (tlsCert tls.Certificate, err error) {
+func GenerateCertificate(cn string, ips []net.IP) (tlsCert tls.Certificate, err error) {
 	var serial big.Int
 	if serial, err = generateRandomSerial(); err != nil {
 		return
@@ -24,7 +24,7 @@ func GenerateCertificate(cn string, ip string) (tlsCert tls.Certificate, err err
 	info := &x509.Certificate{
 		SerialNumber:          &serial,
 		Subject:               pkix.Name{CommonName: cn},
-		IPAddresses:           []net.IP{net.ParseIP(ip)},
+		IPAddresses:           ips,
 		NotBefore:             time.Now(),
 		NotAfter:              time.Now().AddDate(10, 0, 0),
 		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageClientAuth, x509.ExtKeyUsageServerAuth},
