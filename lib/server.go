@@ -6,7 +6,6 @@ import (
 	"crypto/sha256"
 	"crypto/tls"
 	"encoding/hex"
-	"encoding/pem"
 	"fmt"
 	"io"
 	"log"
@@ -70,12 +69,14 @@ func ServeRegister(ctx context.Context, cert tls.Certificate, addr string) error
 		}
 		mu.Unlock()
 
+		var certPem []byte
+		if certPem, err = EncodeCertificate(cert.Certificate[0]); err != nil {
+			return
+		}
+
 		log.Printf("register: remote=%s fingerprint=%x", r.RemoteAddr, fp)
 		w.Header().Set("Content-Type", "application/octet-stream")
-		if err = pem.Encode(w, &pem.Block{
-			Type:  "CERTIFICATE",
-			Bytes: cert.Certificate[0],
-		}); err != nil {
+		if _, err = w.Write(certPem); err != nil {
 			log.Printf("register: %s", err.Error())
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
