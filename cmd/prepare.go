@@ -40,7 +40,7 @@ func Prepare(ctx context.Context, cmd *cli.Command) (err error) {
 	}
 
 	fp := sha256.Sum256(cert.Certificate[0])
-	secret := make([]byte, 64) // 64 * 8 = 512 bits of randomness
+	secret := make([]byte, cmd.Int("random-bytes"))
 	if _, err = rand.Read(secret); err != nil {
 		return
 	}

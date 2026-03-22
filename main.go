@@ -82,6 +82,11 @@ func main() {
 						Name:  "luksSlot",
 						Value: 7,
 					},
+					&cli.IntFlag{
+						Name:    "random-bytes",
+						Aliases: []string{"B"},
+						Value:   64,
+					},
 					&cli.StringFlag{
 						Name:  "boot",
 						Value: "/boot",
