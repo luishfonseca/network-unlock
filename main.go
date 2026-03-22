@@ -35,16 +35,40 @@ func main() {
 						Name:     "public",
 						Aliases:  []string{"pub"},
 					},
-					&cli.Uint16Flag{
-						Name:    "port",
-						Aliases: []string{"p"},
-						Value:   9745,
-					},
 					&cli.DurationFlag{
 						Name:  "ttl",
 						Value: time.Duration(5 * time.Minute),
 					},
 				},
+			},
+			{
+				Name:    "prepare",
+				Aliases: []string{"p"},
+				Action:  cmd.Prepare,
+				Flags: []cli.Flag{
+					&cmd.IPFlag{
+						Required: true,
+						Name:     "self-internal",
+						Aliases:  []string{"sint"},
+					},
+					&cmd.IPFlag{
+						Required: true,
+						Name:     "self-public",
+						Aliases:  []string{"spub"},
+					},
+					&cmd.IPFlag{
+						Required: true,
+						Name:     "peer-internal",
+						Aliases:  []string{"pint"},
+					},
+				},
+			},
+		},
+		Flags: []cli.Flag{
+			&cli.Uint16Flag{
+				Name:    "port",
+				Aliases: []string{"p"},
+				Value:   9745,
 			},
 		},
 		Version: Version,
