@@ -57,12 +57,17 @@ func Prepare(ctx context.Context, cmd *cli.Command) (err error) {
 		}
 	}
 
+	if cmd.String("cryptsetup") == "" {
+		log.Print("The cryptsetup binary was not provided, skipping enrollment...")
+		return
+	}
+
 	var crypt string
 	if crypt, err = backingDevice(cmd.String("crypt")); err != nil {
 		return
 	}
 
-	return enrollLUKS(crypt, cmd.String("luksKey"), secret, cmd.Int("luksSlot"))
+	return enrollLUKS(cmd.String("cryptsetup"), crypt, cmd.String("luksKey"), secret, cmd.Int("luksSlot"))
 }
 
 func save(dir string, name string, pem []byte) error {
@@ -92,9 +97,9 @@ func backingDevice(mapperDevice string) (_ string, err error) {
 	return filepath.Join("/dev", entries[0].Name()), nil
 }
 
-func enrollLUKS(device, luksKey string, secret []byte, slot int) error {
-	if output, err := exec.Command("cryptsetup",
-		"luksKillSlot", device, strconv.Itoa(slot),
+func enrollLUKS(cryptsetup, device, luksKey string, secret []byte, slot int) error {
+	if output, err := exec.Command(
+		cryptsetup, "luksKillSlot", device, strconv.Itoa(slot),
 		"--batch-mode",
 		"--key-file", luksKey,
 	).CombinedOutput(); err != nil {
@@ -103,8 +108,8 @@ func enrollLUKS(device, luksKey string, secret []byte, slot int) error {
 
 	log.Printf("Enrolling unlock key in LUKS slot %d", slot)
 
-	cmd := exec.Command("cryptsetup",
-		"luksAddKey", device,
+	cmd := exec.Command(
+		cryptsetup, "luksAddKey", device,
 		"--batch-mode",
 		"--new-keyfile", "-",
 		"--key-file", luksKey,

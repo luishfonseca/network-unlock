@@ -63,8 +63,7 @@ func main() {
 						Aliases:  []string{"pint"},
 					},
 					&cli.StringFlag{
-						Required: true,
-						Name:     "cryptsetup",
+						Name: "cryptsetup",
 						Validator: func(s string) error {
 							_, err := exec.LookPath(s)
 							return err
