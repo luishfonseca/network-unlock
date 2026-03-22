@@ -61,6 +61,10 @@ func main() {
 						Name:     "peer-internal",
 						Aliases:  []string{"pint"},
 					},
+					&cli.StringFlag{
+						Name:  "boot",
+						Value: "/boot",
+					},
 				},
 			},
 		},

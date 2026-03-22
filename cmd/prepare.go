@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net"
+	"os"
 
 	"github.com/luishfonseca/network-unlock/lib"
 	"github.com/urfave/cli/v3"
@@ -47,12 +48,19 @@ func Prepare(ctx context.Context, cmd *cli.Command) (err error) {
 		return err
 	}
 
-	fmt.Println("self.crt:")
-	fmt.Print(string(certPem))
-	fmt.Println("self.key:")
-	fmt.Print(string(keyPem))
-	fmt.Println("peer.crt:")
-	fmt.Print(string(peerPem))
+	if err := save(cmd.String("boot"), "self.crt", certPem); err != nil {
+		return err
+	}
+	if err := save(cmd.String("boot"), "self.key", keyPem); err != nil {
+		return err
+	}
+	if err := save(cmd.String("boot"), "peer.crt", peerPem); err != nil {
+		return err
+	}
 
 	return nil
+}
+
+func save(dir string, name string, pem []byte) error {
+	return os.WriteFile(fmt.Sprintf("%s/%s", dir, name), pem, 0600)
 }
