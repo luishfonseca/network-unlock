@@ -44,7 +44,7 @@ func Prepare(ctx context.Context, cmd *cli.Command) (err error) {
 	var peerPem []byte
 	addr := fmt.Sprintf("%s:%d", cmdIP(cmd, "peer-internal"), cmd.Uint16("port"))
 	log.Printf("Registering %x on %s", fp, addr)
-	if peerPem, err = lib.Register(addr, fp, secret); err != nil {
+	if peerPem, err = lib.Register(cmdIP(cmd, "self-internal"), addr, fp, secret); err != nil {
 		return err
 	}
 
