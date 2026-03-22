@@ -83,15 +83,7 @@ func ServeRegister(ctx context.Context, cert tls.Certificate, addr string) error
 		}
 	})
 
-	return (&http.Server{
-		Addr:    addr,
-		Handler: mux,
-		TLSConfig: &tls.Config{
-			Certificates: []tls.Certificate{cert},
-			ClientAuth:   tls.NoClientCert,
-			MinVersion:   tls.VersionTLS13,
-		},
-	}).ListenAndServeTLS("", "")
+	return http.ListenAndServe(addr, mux)
 }
 
 func ServeUnlock(ctx context.Context, ttl time.Duration, cert tls.Certificate, addr string) error {
