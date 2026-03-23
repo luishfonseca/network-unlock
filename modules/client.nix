@@ -67,7 +67,7 @@ in {
       }
       {
         assertion = config.boot.initrd.systemd.network.networks != {};
-        message = "Network unlock requires atleast one network configured.";
+        message = "Network unlock requires at least one network configured.";
       }
     ];
 
