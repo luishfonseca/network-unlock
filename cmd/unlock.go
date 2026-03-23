@@ -75,10 +75,6 @@ func Unlock(ctx context.Context, cmd *cli.Command) (err error) {
 	secret := make([]byte, len(shareA))
 	subtle.XORBytes(secret, shareA, shareB)
 
-	// clean shares from memory
-	subtle.XORBytes(shareA, shareA, shareA)
-	subtle.XORBytes(shareB, shareB, shareB)
-
 	log.Printf("Secret is ready on %s", cmd.String("fifo"))
 	ready()
 
@@ -92,9 +88,6 @@ func Unlock(ctx context.Context, cmd *cli.Command) (err error) {
 		return
 	}
 	log.Print("Secret was read")
-
-	// clean secret from memory
-	subtle.XORBytes(secret, secret, secret)
 
 	return nil
 }
