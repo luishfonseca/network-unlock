@@ -192,9 +192,9 @@ func listen(ctx context.Context, addr string, v6 bool) (ln net.Listener, err err
 			var operr error
 			if err := conn.Control(func(fd uintptr) {
 				if v6 {
-					operr = syscall.SetsockoptInt(int(fd), unix.IPPROTO_IPV6, unix.IPV6_FREEBIND, 1)
+					operr = unix.SetsockoptInt(int(fd), unix.IPPROTO_IPV6, unix.IPV6_FREEBIND, 1)
 				} else {
-					operr = syscall.SetsockoptInt(int(fd), unix.IPPROTO_IP, unix.IP_FREEBIND, 1)
+					operr = unix.SetsockoptInt(int(fd), unix.IPPROTO_IP, unix.IP_FREEBIND, 1)
 				}
 			}); err != nil {
 				return err

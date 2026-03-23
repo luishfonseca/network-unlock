@@ -52,9 +52,14 @@ func Prepare(ctx context.Context, cmd *cli.Command) (err error) {
 		return
 	}
 
+	if err = os.MkdirAll(cmd.String("dir"), 0700); err != nil {
+		return fmt.Errorf("mkdir %s: %s", cmd.String("dir"), err.Error())
+	}
+
 	for k, v := range store {
-		if err = os.WriteFile(fmt.Sprintf("%s/%s", cmd.String("boot"), k), v, 0600); err != nil {
-			return
+		path := fmt.Sprintf("%s/%s", cmd.String("boot"), k)
+		if err = os.WriteFile(path, v, 0600); err != nil {
+			return fmt.Errorf("write %s: %s", path, err.Error())
 		}
 	}
 

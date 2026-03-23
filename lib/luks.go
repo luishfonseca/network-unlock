@@ -57,7 +57,7 @@ func AddKey(crypt, newKey, key string, slot int, in []byte) (err error) {
 func backingDevice(mapperDevice string) (_ string, err error) {
 	var st unix.Stat_t
 	if err = unix.Stat(mapperDevice, &st); err != nil {
-		return
+		return "", fmt.Errorf("stat %s: %s", mapperDevice, err.Error())
 	}
 
 	backing := fmt.Sprintf("/sys/dev/block/%d:%d/slaves",
@@ -67,7 +67,7 @@ func backingDevice(mapperDevice string) (_ string, err error) {
 
 	var entries []os.DirEntry
 	if entries, err = os.ReadDir(backing); err != nil {
-		return
+		return "", fmt.Errorf("read_dir %s: %s", backing, err.Error())
 	}
 
 	if len(entries) != 1 {
