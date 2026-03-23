@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"crypto/subtle"
 	"fmt"
 	"log"
 	"net"
@@ -34,9 +35,9 @@ func Unlock(ctx context.Context, cmd *cli.Command) (err error) {
 		return
 	}
 
-	log.Printf("Retrieving secret from %s", cmdIP(cmd, "peer-public"))
-	var secret []byte
-	if secret, err = remoteSecret(
+	log.Printf("Retrieving secret share from %s", cmdIP(cmd, "peer-public"))
+	var shareA []byte
+	if shareA, err = remoteSecret(
 		cmdIP(cmd, "self-external"),
 		cmdIP(cmd, "peer-public"),
 		cmd.Uint16("port"),
@@ -44,6 +45,14 @@ func Unlock(ctx context.Context, cmd *cli.Command) (err error) {
 	); err != nil {
 		return
 	}
+
+	var shareB []byte
+	if shareB, err = os.ReadFile(fmt.Sprintf("%s/share.key", cmd.String("boot"))); err != nil {
+		return
+	}
+
+	secret := make([]byte, len(shareA))
+	subtle.XORBytes(secret, shareA, shareB)
 
 	log.Printf("Secret is ready on %s", cmd.String("fifo"))
 	ready()

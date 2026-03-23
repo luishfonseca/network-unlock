@@ -5,6 +5,7 @@ import (
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
+	"crypto/subtle"
 	"crypto/tls"
 	"fmt"
 	"log"
@@ -30,35 +31,40 @@ func Prepare(ctx context.Context, cmd *cli.Command) (err error) {
 		return
 	}
 
-	var pem map[string][]byte = map[string][]byte{}
-	if pem["self.crt"], err = lib.EncodeCertificate(cert.Certificate[0]); err != nil {
+	store := map[string][]byte{}
+	if store["self.crt"], err = lib.EncodeCertificate(cert.Certificate[0]); err != nil {
 		return
 	}
 
-	if pem["self.key"], err = lib.EncodeKey(cert.PrivateKey); err != nil {
+	if store["self.key"], err = lib.EncodeKey(cert.PrivateKey); err != nil {
 		return
 	}
 
 	fp := sha256.Sum256(cert.Certificate[0])
-	secret := make([]byte, cmd.Int("random-bytes"))
-	if _, err = rand.Read(secret); err != nil {
+	shareA := make([]byte, cmd.Int("random-bytes"))
+	if _, err = rand.Read(shareA); err != nil {
 		return
 	}
+	shareB := make([]byte, cmd.Int("random-bytes"))
+	if _, err = rand.Read(shareB); err != nil {
+		return
+	}
+	store["share.key"] = shareB
 
 	addr := fmt.Sprintf("%s:%d", cmdIP(cmd, "peer-internal"), cmd.Uint16("port"))
-	log.Printf("Registering %x on %s", fp, addr)
-	if pem["peer.crt"], err = lib.Register(cmdIP(cmd, "self-internal"), addr, fp, secret); err != nil {
+	log.Printf("Storing secret share on %s (%x)", addr, fp)
+	if store["peer.crt"], err = lib.Register(cmdIP(cmd, "self-internal"), addr, fp, shareA); err != nil {
 		return
 	}
 
-	for k, v := range pem {
-		if err = save(cmd.String("boot"), k, v); err != nil {
+	for k, v := range store {
+		if err = os.WriteFile(fmt.Sprintf("%s/%s", cmd.String("boot"), k), v, 0600); err != nil {
 			return
 		}
 	}
 
 	if cmd.String("cryptsetup") == "" {
-		log.Print("The cryptsetup binary was not provided, skipping enrollment...")
+		log.Print("No cryptsetup binary provided, skipping enrollment...")
 		return
 	}
 
@@ -67,11 +73,12 @@ func Prepare(ctx context.Context, cmd *cli.Command) (err error) {
 		return
 	}
 
-	return enrollLUKS(cmd.String("cryptsetup"), crypt, cmd.String("luks-key"), secret, cmd.Int("luks-slot"))
-}
+	secret := make([]byte, cmd.Int("random-bytes"))
+	if n := subtle.XORBytes(secret, shareA, shareB); n < cmd.Int("random-bytes") {
+		return fmt.Errorf("XOR of secret shares is too small: %d < %d", n, cmd.Int("random-bytes"))
+	}
 
-func save(dir string, name string, pem []byte) error {
-	return os.WriteFile(fmt.Sprintf("%s/%s", dir, name), pem, 0600)
+	return enrollLUKS(cmd.String("cryptsetup"), crypt, cmd.String("luks-key"), secret, cmd.Int("luks-slot"))
 }
 
 func backingDevice(mapperDevice string) (_ string, err error) {
