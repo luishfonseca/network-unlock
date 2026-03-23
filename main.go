@@ -108,6 +108,10 @@ func main() {
 						Aliases:  []string{"ppub"},
 					},
 					&cli.StringFlag{
+						Required: true,
+						Name:     "fifo",
+					},
+					&cli.StringFlag{
 						Name:  "boot",
 						Value: "/sysroot/boot",
 					},
