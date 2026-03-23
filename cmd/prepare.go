@@ -57,7 +57,7 @@ func Prepare(ctx context.Context, cmd *cli.Command) (err error) {
 	}
 
 	for k, v := range store {
-		path := fmt.Sprintf("%s/%s", cmd.String("boot"), k)
+		path := fmt.Sprintf("%s/%s", cmd.String("dir"), k)
 		if err = os.WriteFile(path, v, 0600); err != nil {
 			return fmt.Errorf("write %s: %s", path, err.Error())
 		}

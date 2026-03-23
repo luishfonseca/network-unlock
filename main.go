@@ -79,8 +79,8 @@ func main() {
 						Value:   64,
 					},
 					&cli.StringFlag{
-						Name:  "boot",
-						Value: "/boot",
+						Name:  "dir",
+						Value: "/boot/unlock",
 					},
 				},
 			},
@@ -104,8 +104,8 @@ func main() {
 						Name:     "fifo",
 					},
 					&cli.StringFlag{
-						Name:  "boot",
-						Value: "/sysroot/boot",
+						Name:  "dir",
+						Value: "/sysroot/boot/unlock",
 					},
 				},
 			},

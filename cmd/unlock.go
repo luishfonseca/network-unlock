@@ -46,13 +46,13 @@ func Unlock(ctx context.Context, cmd *cli.Command) (err error) {
 		cmdIP(cmd, "self-external"),
 		cmdIP(cmd, "peer-public"),
 		cmd.Uint16("port"),
-		cmd.String("boot"),
+		cmd.String("dir"),
 	); err != nil {
 		return
 	}
 
 	var shareB []byte
-	sharePath := fmt.Sprintf("%s/share.key", cmd.String("boot"))
+	sharePath := fmt.Sprintf("%s/share.key", cmd.String("dir"))
 	defer os.Remove(sharePath)
 	if shareB, err = os.ReadFile(sharePath); err != nil {
 		return fmt.Errorf("read %s: %s", sharePath, err.Error())
@@ -85,22 +85,22 @@ func Unlock(ctx context.Context, cmd *cli.Command) (err error) {
 	return nil
 }
 
-func remoteShare(from, to net.IP, port uint16, boot string) (_ []byte, err error) {
+func remoteShare(from, to net.IP, port uint16, dir string) (_ []byte, err error) {
 	var cert, key, peer []byte
 
-	certPath := fmt.Sprintf("%s/self.crt", boot)
+	certPath := fmt.Sprintf("%s/self.crt", dir)
 	defer os.Remove(certPath)
 	if cert, err = os.ReadFile(certPath); err != nil {
 		return nil, fmt.Errorf("read %s: %s", certPath, err.Error())
 	}
 
-	keyPath := fmt.Sprintf("%s/self.key", boot)
+	keyPath := fmt.Sprintf("%s/self.key", dir)
 	defer os.Remove(keyPath)
 	if key, err = os.ReadFile(keyPath); err != nil {
 		return nil, fmt.Errorf("read %s: %s", keyPath, err.Error())
 	}
 
-	peerPath := fmt.Sprintf("%s/peer.crt", boot)
+	peerPath := fmt.Sprintf("%s/peer.crt", dir)
 	defer os.Remove(peerPath)
 	if peer, err = os.ReadFile(peerPath); err != nil {
 		return nil, fmt.Errorf("read %s: %s", peerPath, err.Error())
