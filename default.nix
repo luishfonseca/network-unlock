@@ -8,5 +8,5 @@ buildGoModule rec {
   ldflags = ["-s -w -X main.Version=${version}"];
   env.CGO_ENABLED = 0;
 
-  meta.mainProgramz = pname;
+  meta.mainProgram = pname;
 }
