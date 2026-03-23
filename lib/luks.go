@@ -3,6 +3,7 @@ package lib
 import (
 	"bytes"
 	"fmt"
+	"log"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -11,19 +12,24 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func KillSlot(crypt, key string, slot int) (_ []byte, err error) {
+func TryKillSlot(crypt, key string, slot int) (err error) {
 	var device string
 	if device, err = backingDevice(crypt); err != nil {
 		return
 	}
 
-	return exec.Command(
+	if output, err := exec.Command(
 		"cryptsetup", "luksKillSlot", device, strconv.Itoa(slot),
 		"--key-file", key,
-	).CombinedOutput()
+	).CombinedOutput(); err != nil {
+		log.Print(string(output))
+		// keep going
+	}
+
+	return nil
 }
 
-func AddKey(crypt, newKey, key string, slot int, in []byte) (_ []byte, err error) {
+func AddKey(crypt, newKey, key string, slot int, in []byte) (err error) {
 	var device string
 	if device, err = backingDevice(crypt); err != nil {
 		return
@@ -40,7 +46,12 @@ func AddKey(crypt, newKey, key string, slot int, in []byte) (_ []byte, err error
 		cmd.Stdin = bytes.NewReader(in)
 	}
 
-	return cmd.CombinedOutput()
+	if output, err := cmd.CombinedOutput(); err != nil {
+		log.Print(string(output))
+		return err
+	}
+
+	return nil
 }
 
 func backingDevice(mapperDevice string) (_ string, err error) {
