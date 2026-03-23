@@ -24,23 +24,25 @@ func Serve(ctx context.Context, cmd *cli.Command) (err error) {
 	defer cancel()
 
 	go func() {
-		internal := fmt.Sprintf("%s:%d", cmdIP(cmd, "internal"), cmd.Uint16("port"))
+		addr := cmdIP(cmd, "internal")
+		internal := fmt.Sprintf("%s:%d", addr, cmd.Uint16("port"))
 		log.Printf("Register server starting on internal address: %s", internal)
-		err := lib.ServeRegister(childCtx, cert, internal)
+		err := lib.ServeRegister(childCtx, cert, internal, addr.To4() == nil)
 		errCh <- err
 	}()
 
 	ttl := cmd.Duration("ttl")
 	go func() {
-		var external string
-		if cmdIP(cmd, "external-address") != nil {
-			external = fmt.Sprintf("%s:%d", cmdIP(cmd, "external"), cmd.Uint16("port"))
+		var addr net.IP
+		if cmdIP(cmd, "external") != nil {
+			addr = cmdIP(cmd, "external")
 		} else {
-			external = fmt.Sprintf("%s:%d", cmdIP(cmd, "public"), cmd.Uint16("port"))
+			addr = cmdIP(cmd, "public")
 		}
 
+		external := fmt.Sprintf("%s:%d", addr, cmd.Uint16("port"))
 		log.Printf("Unlock server starting on external address: %s", external)
-		errCh <- lib.ServeUnlock(childCtx, ttl, cert, external)
+		errCh <- lib.ServeUnlock(childCtx, ttl, cert, external, addr.To4() == nil)
 	}()
 
 	ticker := time.NewTicker(ttl)
