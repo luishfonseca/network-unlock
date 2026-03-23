@@ -67,7 +67,7 @@ func Prepare(ctx context.Context, cmd *cli.Command) (err error) {
 		return
 	}
 
-	return enrollLUKS(cmd.String("cryptsetup"), crypt, cmd.String("luksKey"), secret, cmd.Int("luksSlot"))
+	return enrollLUKS(cmd.String("cryptsetup"), crypt, cmd.String("luks-key"), secret, cmd.Int("luks-slot"))
 }
 
 func save(dir string, name string, pem []byte) error {

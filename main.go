@@ -74,11 +74,11 @@ func main() {
 						Value: "/dev/mapper/root_crypt",
 					},
 					&cli.StringFlag{
-						Name:  "luksKey",
+						Name:  "luks-key",
 						Value: "/recovery/root.key",
 					},
 					&cli.IntFlag{
-						Name:  "luksSlot",
+						Name:  "luks-slot",
 						Value: 7,
 					},
 					&cli.IntFlag{
