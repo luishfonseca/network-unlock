@@ -82,6 +82,10 @@ func main() {
 						Name:  "dir",
 						Value: "/boot/unlock",
 					},
+					&cli.DurationFlag{
+						Name:  "timeout",
+						Value: 10 * time.Second,
+					},
 				},
 			},
 			{
@@ -106,6 +110,10 @@ func main() {
 					&cli.StringFlag{
 						Name:  "dir",
 						Value: "/sysroot/boot/unlock",
+					},
+					&cli.DurationFlag{
+						Name:  "timeout",
+						Value: 10 * time.Second,
 					},
 				},
 			},

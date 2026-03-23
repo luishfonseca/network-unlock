@@ -10,6 +10,7 @@ import (
 	"log"
 	"net"
 	"os"
+	"time"
 
 	"github.com/luishfonseca/network-unlock/lib"
 	"github.com/urfave/cli/v3"
@@ -46,9 +47,12 @@ func Prepare(ctx context.Context, cmd *cli.Command) (err error) {
 	}
 	store["share.key"] = shareB
 
+	childCtx, cancel := context.WithDeadline(ctx, time.Now().Add(cmd.Duration("timeout")))
+	defer cancel()
+
 	addr := fmt.Sprintf("%s:%d", cmdIP(cmd, "peer-internal"), cmd.Uint16("port"))
 	log.Printf("Storing secret share on %s (%x)", addr, fp)
-	if store["peer.crt"], err = lib.Register(cmdIP(cmd, "self-internal"), addr, fp, shareA); err != nil {
+	if store["peer.crt"], err = lib.Register(childCtx, cmdIP(cmd, "self-internal"), addr, fp, shareA); err != nil {
 		return
 	}
 
