@@ -2,7 +2,6 @@ package cmd
 
 import (
 	"context"
-	"crypto/tls"
 	"fmt"
 	"log"
 	"net"
@@ -12,10 +11,10 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-func Serve(ctx context.Context, cmd *cli.Command) (err error) {
-	var cert tls.Certificate
-	log.Printf("Generating certificate for public address %s", cmdIP(cmd, "public"))
-	if cert, err = lib.GenerateCertificate("network-unlock-server", []net.IP{cmdIP(cmd, "public")}); err != nil {
+func Serve(ctx context.Context, cmd *cli.Command) error {
+	log.Printf("serve: generating certificate for %s", cmdIP(cmd, "public"))
+	cert, err := lib.GenerateCertificate("network-unlock-server", []net.IP{cmdIP(cmd, "public")})
+	if err != nil {
 		return err
 	}
 
@@ -26,7 +25,7 @@ func Serve(ctx context.Context, cmd *cli.Command) (err error) {
 	go func() {
 		addr := cmdIP(cmd, "internal")
 		internal := fmt.Sprintf("%s:%d", addr, cmd.Uint16("port"))
-		log.Printf("Register server starting on internal address: %s", internal)
+		log.Printf("serve: register server starting on %s", internal)
 		err := lib.ServeRegister(childCtx, cert, internal, addr.To4() == nil)
 		errCh <- err
 	}()
@@ -41,7 +40,7 @@ func Serve(ctx context.Context, cmd *cli.Command) (err error) {
 		}
 
 		external := fmt.Sprintf("%s:%d", addr, cmd.Uint16("port"))
-		log.Printf("Unlock server starting on external address: %s", external)
+		log.Printf("serve: unlock server starting on %s", external)
 		errCh <- lib.ServeUnlock(childCtx, ttl, cert, external, addr.To4() == nil)
 	}()
 
@@ -52,7 +51,7 @@ func Serve(ctx context.Context, cmd *cli.Command) (err error) {
 			case <-ticker.C:
 				count := lib.CleanupEntries(ttl)
 				if count > 0 {
-					log.Printf("Removed %d expired entries", count)
+					log.Printf("serve: removed %d expired entries", count)
 				}
 			case <-childCtx.Done():
 				ticker.Stop()

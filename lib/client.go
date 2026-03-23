@@ -12,7 +12,7 @@ import (
 	"net/http"
 )
 
-func Register(ctx context.Context, from net.IP, addr string, fingerprint [32]byte, secret []byte) (body []byte, err error) {
+func Register(ctx context.Context, from net.IP, addr string, fingerprint [32]byte, secret []byte) ([]byte, error) {
 	secretBuf := bytes.NewBuffer(bytes.Clone(secret))
 	fp := hex.EncodeToString(fingerprint[:])
 
@@ -24,36 +24,37 @@ func Register(ctx context.Context, from net.IP, addr string, fingerprint [32]byt
 		dialer.Deadline, _ = ctx.Deadline()
 	}
 
-	var resp *http.Response
-	if resp, err = (&http.Client{
+	resp, err := (&http.Client{
 		Transport: &http.Transport{
 			DialContext: dialer.DialContext,
 		},
-	}).Post(fmt.Sprintf("http://%s/register/%s", addr, fp), "application/octet-stream", secretBuf); err != nil {
-		return
+	}).Post(fmt.Sprintf("http://%s/register/%s", addr, fp), "application/octet-stream", secretBuf)
+	if err != nil {
+		return nil, err
 	}
 	defer resp.Body.Close()
 
-	if body, err = io.ReadAll(resp.Body); err != nil {
-		return
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
 	}
 
 	if resp.StatusCode != 200 {
-		return nil, fmt.Errorf("%s: %s", resp.Status, body)
+		return nil, fmt.Errorf("register: %s", resp.Status)
 	}
 
-	return
+	return body, nil
 }
 
-func Unlock(ctx context.Context, from net.IP, addr string, cert, key, peer []byte) (body []byte, err error) {
-	var tlsCert tls.Certificate
-	if tlsCert, err = tls.X509KeyPair(cert, key); err != nil {
-		return
+func Unlock(ctx context.Context, from net.IP, addr string, cert, key, peer []byte) ([]byte, error) {
+	tlsCert, err := tls.X509KeyPair(cert, key)
+	if err != nil {
+		return nil, err
 	}
 
 	caPool := x509.NewCertPool()
 	if !caPool.AppendCertsFromPEM(peer) {
-		return nil, fmt.Errorf("failed to append peer certificate to CA pool")
+		return nil, fmt.Errorf("append peer certificate to CA pool")
 	}
 
 	dialer := &net.Dialer{}
@@ -65,29 +66,29 @@ func Unlock(ctx context.Context, from net.IP, addr string, cert, key, peer []byt
 		dialer.Deadline, _ = ctx.Deadline()
 	}
 
-	var resp *http.Response
-	if resp, err = (&http.Client{
+	resp, err := (&http.Client{
 		Transport: &http.Transport{
 			TLSClientConfig: &tls.Config{
 				RootCAs:      caPool,
 				Certificates: []tls.Certificate{tlsCert},
-				ClientAuth:   tls.RequireAnyClientCert,
 				MinVersion:   tls.VersionTLS13,
 			},
 			DialContext: dialer.DialContext,
 		},
-	}).Get(fmt.Sprintf("https://%s/unlock", addr)); err != nil {
-		return
+	}).Get(fmt.Sprintf("https://%s/unlock", addr))
+	if err != nil {
+		return nil, err
 	}
 	defer resp.Body.Close()
 
-	if body, err = io.ReadAll(resp.Body); err != nil {
-		return
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return nil, err
 	}
 
 	if resp.StatusCode != 200 {
 		return nil, fmt.Errorf("%s: %s", resp.Status, body)
 	}
 
-	return
+	return body, nil
 }

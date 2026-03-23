@@ -17,10 +17,10 @@ import (
 )
 
 // https://shaneutt.com/blog/golang-ca-and-signed-cert-go/
-func GenerateCertificate(cn string, ips []net.IP) (tlsCert tls.Certificate, err error) {
-	var serial big.Int
-	if serial, err = generateRandomSerial(); err != nil {
-		return
+func GenerateCertificate(cn string, ips []net.IP) (tls.Certificate, error) {
+	serial, err := generateRandomSerial()
+	if err != nil {
+		return tls.Certificate{}, err
 	}
 
 	info := &x509.Certificate{
@@ -34,69 +34,74 @@ func GenerateCertificate(cn string, ips []net.IP) (tlsCert tls.Certificate, err 
 		BasicConstraintsValid: true,
 	}
 
-	var key *ecdsa.PrivateKey
-	if key, err = ecdsa.GenerateKey(elliptic.P256(), rand.Reader); err != nil {
-		return
+	key, err := ecdsa.GenerateKey(elliptic.P256(), rand.Reader)
+	if err != nil {
+		return tls.Certificate{}, err
 	}
 
-	var cert []byte
-	if cert, err = x509.CreateCertificate(rand.Reader, info, info, &key.PublicKey, key); err != nil {
-		return
+	cert, err := x509.CreateCertificate(rand.Reader, info, info, &key.PublicKey, key)
+	if err != nil {
+		return tls.Certificate{}, err
 	}
 
-	var certPem []byte
-	if certPem, err = EncodeCertificate(cert); err != nil {
-		return
+	certPem, err := EncodeCertificate(cert)
+	if err != nil {
+		return tls.Certificate{}, err
 	}
 
-	var keyPem []byte
-	if keyPem, err = EncodeKey(key); err != nil {
-		return
+	keyPem, err := EncodeKey(key)
+	if err != nil {
+		return tls.Certificate{}, err
 	}
 
 	return tls.X509KeyPair(certPem, keyPem)
 }
 
-func EncodeCertificate(cert []byte) (_ []byte, err error) {
+func EncodeCertificate(cert []byte) ([]byte, error) {
 	buf := new(bytes.Buffer)
-	if err = pem.Encode(buf, &pem.Block{
+	err := pem.Encode(buf, &pem.Block{
 		Type:  "CERTIFICATE",
 		Bytes: cert,
-	}); err != nil {
-		return
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return buf.Bytes(), nil
 }
 
-func EncodeKey(key crypto.PrivateKey) (_ []byte, err error) {
+func EncodeKey(key crypto.PrivateKey) ([]byte, error) {
 	key, ok := key.(*ecdsa.PrivateKey)
 	if !ok {
-		return nil, fmt.Errorf("Expected ECDH private key")
+		return nil, fmt.Errorf("expected ECDH private key")
 	}
 
-	var keyBytes []byte
-	if keyBytes, err = x509.MarshalPKCS8PrivateKey(key); err != nil {
-		return
+	keyBytes, err := x509.MarshalPKCS8PrivateKey(key)
+	if err != nil {
+		return nil, err
 	}
 
 	buf := new(bytes.Buffer)
-	if err = pem.Encode(buf, &pem.Block{
+	err = pem.Encode(buf, &pem.Block{
 		Type:  "PRIVATE KEY",
 		Bytes: keyBytes,
-	}); err != nil {
-		return
+	})
+	if err != nil {
+		return nil, err
 	}
 
 	return buf.Bytes(), nil
 }
 
-func generateRandomSerial() (serial big.Int, err error) {
+func generateRandomSerial() (big.Int, error) {
+	var serial big.Int
 	bytes := make([]byte, 20)
-	if _, err = rand.Read(bytes); err != nil {
-		return
+	_, err := rand.Read(bytes)
+	if err != nil {
+		return serial, err
 	}
+
 	serial.SetBytes(bytes)
 	serial = *serial.Rsh(&serial, 1)
-	return
+	return serial, nil
 }

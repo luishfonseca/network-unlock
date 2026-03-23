@@ -26,7 +26,7 @@ func (v *ipValue) Set(s string) error {
 		*v = ipValue(ip{parsed})
 		return nil
 	}
-	return fmt.Errorf("unable to parse ip")
+	return fmt.Errorf("parse ip: %s", s)
 }
 
 func (v ipValue) String() string {

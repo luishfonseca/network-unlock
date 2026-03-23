@@ -47,6 +47,14 @@ in {
         AmbientCapabilities = "cap_net_raw";
         CapabilityBoundingSet = "cap_net_raw";
 
+        ProtectSystem = "strict";
+        ProtectHome = true;
+        PrivateDevices = true;
+        PrivateTmp = true;
+        NoNewPrivileges = true;
+        MemoryDenyWriteExecute = true;
+        RestrictNamespaces = true;
+
         ExecStart = lib.concatStringsSep " " [
           "${cfg.package}/bin/network-unlock serve"
           "--internal ${cfg.internal}"

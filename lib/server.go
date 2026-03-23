@@ -33,7 +33,7 @@ var (
 	stored map[Fingerprint]*Entry = map[Fingerprint]*Entry{}
 )
 
-func ServeRegister(ctx context.Context, cert tls.Certificate, addr string, v6 bool) (err error) {
+func ServeRegister(ctx context.Context, cert tls.Certificate, addr string, v6 bool) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/register/", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodPost {
@@ -52,19 +52,25 @@ func ServeRegister(ctx context.Context, cert tls.Certificate, addr string, v6 bo
 
 		remote, err := parseIP(r.RemoteAddr)
 		if err != nil {
-			log.Printf("register: %s", err.Error())
+			log.Printf("register: %v", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
-		secret, err := io.ReadAll(r.Body)
+		secret, err := io.ReadAll(io.LimitReader(r.Body, 1024))
 		if err != nil {
-			log.Printf("register: %s", err.Error())
+			log.Printf("register: %v", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 
 		mu.Lock()
+		if _, exists := stored[Fingerprint(fp)]; exists {
+			mu.Unlock()
+			log.Printf("register: rejected duplicate fingerprint: %x", fp)
+			http.Error(w, "duplicate registration", http.StatusConflict)
+			return
+		}
 		stored[Fingerprint(fp)] = &Entry{
 			secret,
 			remote,
@@ -72,29 +78,31 @@ func ServeRegister(ctx context.Context, cert tls.Certificate, addr string, v6 bo
 		}
 		mu.Unlock()
 
-		var certPem []byte
-		if certPem, err = EncodeCertificate(cert.Certificate[0]); err != nil {
+		certPem, err := EncodeCertificate(cert.Certificate[0])
+		if err != nil {
+			log.Printf("register: encode certificate: %v", err)
+			http.Error(w, "internal error", http.StatusInternalServerError)
 			return
 		}
 
 		log.Printf("register: remote=%s fingerprint=%x", r.RemoteAddr, fp)
 		w.Header().Set("Content-Type", "application/octet-stream")
-		if _, err = w.Write(certPem); err != nil {
-			log.Printf("register: %s", err.Error())
+		if _, err := w.Write(certPem); err != nil {
+			log.Printf("register: %v", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 	})
 
-	var ln net.Listener
-	if ln, err = listen(ctx, addr, v6); err != nil {
-		return
+	ln, err := listen(ctx, addr, v6)
+	if err != nil {
+		return err
 	}
 
 	return http.Serve(ln, mux)
 }
 
-func ServeUnlock(ctx context.Context, ttl time.Duration, cert tls.Certificate, addr string, v6 bool) (err error) {
+func ServeUnlock(ctx context.Context, ttl time.Duration, cert tls.Certificate, addr string, v6 bool) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/unlock", func(w http.ResponseWriter, r *http.Request) {
 		if r.Method != http.MethodGet {
@@ -107,8 +115,10 @@ func ServeUnlock(ctx context.Context, ttl time.Duration, cert tls.Certificate, a
 
 		mu.Lock()
 		entry, found := stored[fp]
-		if found && time.Since(entry.when) > ttl {
+		if found {
 			delete(stored, fp)
+		}
+		if time.Since(entry.when) > ttl {
 			found = false
 		}
 		mu.Unlock()
@@ -121,7 +131,7 @@ func ServeUnlock(ctx context.Context, ttl time.Duration, cert tls.Certificate, a
 
 		remote, err := parseIP(r.RemoteAddr)
 		if err != nil {
-			log.Printf("unlock: %s", err.Error())
+			log.Printf("unlock: %v", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
@@ -134,22 +144,18 @@ func ServeUnlock(ctx context.Context, ttl time.Duration, cert tls.Certificate, a
 			return
 		}
 
-		mu.Lock()
-		delete(stored, fp)
-		mu.Unlock()
-
 		log.Printf("unlock: remote=%s fingerprint=%x", r.RemoteAddr, fp)
 		w.Header().Set("Content-Type", "application/octet-stream")
-		if _, err = w.Write(entry.secret); err != nil {
-			log.Printf("register: %s", err.Error())
+		if _, err := w.Write(entry.secret); err != nil {
+			log.Printf("unlock: %v", err)
 			http.Error(w, err.Error(), http.StatusInternalServerError)
 			return
 		}
 	})
 
-	var ln net.Listener
-	if ln, err = listen(ctx, addr, v6); err != nil {
-		return
+	ln, err := listen(ctx, addr, v6)
+	if err != nil {
+		return err
 	}
 
 	return (&http.Server{
@@ -177,7 +183,7 @@ func CleanupEntries(ttl time.Duration) int {
 	return count
 }
 
-func listen(ctx context.Context, addr string, v6 bool) (ln net.Listener, err error) {
+func listen(ctx context.Context, addr string, v6 bool) (net.Listener, error) {
 	var network string
 	if v6 {
 		network = "tcp6"
@@ -204,19 +210,32 @@ func listen(ctx context.Context, addr string, v6 bool) (ln net.Listener, err err
 	}).Listen(ctx, network, addr)
 }
 
-func parseIP(addr string) (ip net.IP, err error) {
-	if addr, _, err = net.SplitHostPort(addr); err != nil {
-		return
+func parseIP(addr string) (net.IP, error) {
+	addr, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return nil, err
 	}
 
-	if ip = net.ParseIP(addr); ip == nil {
-		return nil, fmt.Errorf("Failed to parse %s", addr)
+	ip := net.ParseIP(addr)
+	if ip == nil {
+		return nil, fmt.Errorf("parse ip %s", addr)
 	}
 
-	return
+	return ip, nil
+}
+
+func normalizeIPs(addrs []net.IP) []net.IP {
+	out := make([]net.IP, len(addrs))
+	for i, ip := range addrs {
+		out[i] = ip.To16()
+	}
+	return out
 }
 
 func equalAddrs(remoteAddrs []net.IP, certAddrs []net.IP) bool {
+	remoteAddrs = normalizeIPs(remoteAddrs)
+	certAddrs = normalizeIPs(certAddrs)
+
 	slices.SortFunc(remoteAddrs, func(i, j net.IP) int {
 		return bytes.Compare(i, j)
 	})

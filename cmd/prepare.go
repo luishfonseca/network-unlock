@@ -5,7 +5,6 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"crypto/subtle"
-	"crypto/tls"
 	"fmt"
 	"log"
 	"net"
@@ -16,34 +15,41 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-func Prepare(ctx context.Context, cmd *cli.Command) (err error) {
-	log.Printf("Generating ephemeral certificate")
+func Prepare(ctx context.Context, cmd *cli.Command) error {
+	log.Printf("prepare: generating ephemeral certificate")
 
-	var cert tls.Certificate
-	if cert, err = lib.GenerateCertificate("network-unlock-client", []net.IP{
+	cert, err := lib.GenerateCertificate("network-unlock-client", []net.IP{
 		cmdIP(cmd, "self-internal"),
 		cmdIP(cmd, "self-public"),
-	}); err != nil {
-		return
+	})
+	if err != nil {
+		return err
 	}
 
 	store := map[string][]byte{}
-	if store["self.crt"], err = lib.EncodeCertificate(cert.Certificate[0]); err != nil {
-		return
+	store["self.crt"], err = lib.EncodeCertificate(cert.Certificate[0])
+	if err != nil {
+		return err
 	}
 
-	if store["self.key"], err = lib.EncodeKey(cert.PrivateKey); err != nil {
-		return
+	store["self.key"], err = lib.EncodeKey(cert.PrivateKey)
+	if err != nil {
+		return err
 	}
 
 	fp := sha256.Sum256(cert.Certificate[0])
 	shareA := make([]byte, cmd.Int("random-bytes"))
-	if _, err = rand.Read(shareA); err != nil {
-		return
+	defer subtle.XORBytes(shareA, shareA, shareA)
+	_, err = rand.Read(shareA)
+	if err != nil {
+		return err
 	}
+
 	shareB := make([]byte, cmd.Int("random-bytes"))
-	if _, err = rand.Read(shareB); err != nil {
-		return
+	defer subtle.XORBytes(shareB, shareB, shareB)
+	_, err = rand.Read(shareB)
+	if err != nil {
+		return err
 	}
 	store["share.key"] = shareB
 
@@ -51,31 +57,36 @@ func Prepare(ctx context.Context, cmd *cli.Command) (err error) {
 	defer cancel()
 
 	addr := fmt.Sprintf("%s:%d", cmdIP(cmd, "peer-internal"), cmd.Uint16("port"))
-	log.Printf("Storing secret share on %s (%x)", addr, fp)
-	if store["peer.crt"], err = lib.Register(childCtx, cmdIP(cmd, "self-internal"), addr, fp, shareA); err != nil {
-		return
+	log.Printf("prepare: storing secret share on %s (%x)", addr, fp)
+	store["peer.crt"], err = lib.Register(childCtx, cmdIP(cmd, "self-internal"), addr, fp, shareA)
+	if err != nil {
+		return err
 	}
 
-	if err = os.MkdirAll(cmd.String("dir"), 0700); err != nil {
-		return fmt.Errorf("mkdir %s: %s", cmd.String("dir"), err.Error())
+	err = os.MkdirAll(cmd.String("dir"), 0700)
+	if err != nil {
+		return fmt.Errorf("mkdir %s: %w", cmd.String("dir"), err)
 	}
 
 	for k, v := range store {
 		path := fmt.Sprintf("%s/%s", cmd.String("dir"), k)
-		if err = os.WriteFile(path, v, 0600); err != nil {
-			return fmt.Errorf("write %s: %s", path, err.Error())
+		err = os.WriteFile(path, v, 0600)
+		if err != nil {
+			return fmt.Errorf("write %s: %w", path, err)
 		}
 	}
 
 	secret := make([]byte, cmd.Int("random-bytes"))
+	defer subtle.XORBytes(secret, secret, secret)
 	if n := subtle.XORBytes(secret, shareA, shareB); n < cmd.Int("random-bytes") {
-		return fmt.Errorf("XOR of secret shares is too small: %d < %d", n, cmd.Int("random-bytes"))
+		return fmt.Errorf("xor of secret shares too small: %d < %d", n, cmd.Int("random-bytes"))
 	}
 
-	if err = lib.TryKillSlot(cmd.String("luks-crypt"), cmd.String("luks-key"), cmd.Int("luks-slot")); err != nil {
-		return
+	err = lib.TryKillSlot(cmd.String("luks-crypt"), cmd.String("luks-key"), cmd.Int("luks-slot"))
+	if err != nil {
+		return err
 	}
 
-	log.Printf("Enrolling unlock key in LUKS slot %d", cmd.Int("luks-slot"))
+	log.Printf("prepare: enrolling unlock key in LUKS slot %d", cmd.Int("luks-slot"))
 	return lib.AddKey(cmd.String("luks-crypt"), "-", cmd.String("luks-key"), cmd.Int("luks-slot"), secret)
 }

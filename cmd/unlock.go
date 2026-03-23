@@ -16,7 +16,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func Unlock(ctx context.Context, cmd *cli.Command) (err error) {
+func Unlock(ctx context.Context, cmd *cli.Command) error {
 	var once sync.Once
 	ready := func() {
 		once.Do(func() {
@@ -28,66 +28,78 @@ func Unlock(ctx context.Context, cmd *cli.Command) (err error) {
 	defer ready()
 
 	dir := path.Dir(cmd.String("fifo"))
-	if err = os.MkdirAll(dir, 0o700); err != nil {
-		return fmt.Errorf("mkdir %s: %s", dir, err.Error())
+	err := os.MkdirAll(dir, 0o700)
+	if err != nil {
+		return fmt.Errorf("mkdir %s: %w", dir, err)
 	}
 
 	defer os.Remove(cmd.String("fifo"))
-	if err = unix.Mkfifo(cmd.String("fifo"), 0o600); err != nil {
-		return fmt.Errorf("mkfifo %s: %s", cmd.String("fifo"), err.Error())
+	err = unix.Mkfifo(cmd.String("fifo"), 0o600)
+	if err != nil {
+		return fmt.Errorf("mkfifo %s: %w", cmd.String("fifo"), err)
 	}
 
-	var cert, key, peer []byte
 	certPath := fmt.Sprintf("%s/self.crt", cmd.String("dir"))
 	defer os.Remove(certPath)
-	if cert, err = os.ReadFile(certPath); err != nil {
-		return fmt.Errorf("read %s: %s", certPath, err.Error())
+	cert, err := os.ReadFile(certPath)
+	if err != nil {
+		return fmt.Errorf("read %s: %w", certPath, err)
 	}
 
 	keyPath := fmt.Sprintf("%s/self.key", cmd.String("dir"))
 	defer os.Remove(keyPath)
-	if key, err = os.ReadFile(keyPath); err != nil {
-		return fmt.Errorf("read %s: %s", keyPath, err.Error())
+	key, err := os.ReadFile(keyPath)
+	if err != nil {
+		return fmt.Errorf("read %s: %w", keyPath, err)
 	}
 
 	peerPath := fmt.Sprintf("%s/peer.crt", cmd.String("dir"))
 	defer os.Remove(peerPath)
-	if peer, err = os.ReadFile(peerPath); err != nil {
-		return fmt.Errorf("read %s: %s", peerPath, err.Error())
+	peer, err := os.ReadFile(peerPath)
+	if err != nil {
+		return fmt.Errorf("read %s: %w", peerPath, err)
 	}
 
 	childCtx, cancel := context.WithDeadline(ctx, time.Now().Add(cmd.Duration("timeout")))
 	defer cancel()
 
-	var shareA []byte
-	log.Printf("Retrieving secret share from %s", cmdIP(cmd, "peer-public"))
-	if shareA, err = lib.Unlock(childCtx, cmdIP(cmd, "self-external"), fmt.Sprintf("%s:%d", cmdIP(cmd, "peer-public"), cmd.Uint16("port")), cert, key, peer); err != nil {
-		return
+	log.Printf("unlock: retrieving secret share from %s", cmdIP(cmd, "peer-public"))
+	shareA, err := lib.Unlock(childCtx, cmdIP(cmd, "self-external"), fmt.Sprintf("%s:%d", cmdIP(cmd, "peer-public"), cmd.Uint16("port")), cert, key, peer)
+	if err != nil {
+		return err
 	}
+	defer subtle.XORBytes(shareA, shareA, shareA)
 
-	var shareB []byte
 	sharePath := fmt.Sprintf("%s/share.key", cmd.String("dir"))
 	defer os.Remove(sharePath)
-	if shareB, err = os.ReadFile(sharePath); err != nil {
-		return fmt.Errorf("read %s: %s", sharePath, err.Error())
+	shareB, err := os.ReadFile(sharePath)
+	if err != nil {
+		return fmt.Errorf("read %s: %w", sharePath, err)
+	}
+	defer subtle.XORBytes(shareB, shareB, shareB)
+
+	if len(shareA) != len(shareB) {
+		return fmt.Errorf("share length mismatch: %d != %d", len(shareA), len(shareB))
 	}
 
 	secret := make([]byte, len(shareA))
+	defer subtle.XORBytes(secret, secret, secret)
 	subtle.XORBytes(secret, shareA, shareB)
 
-	log.Printf("Secret is ready on %s", cmd.String("fifo"))
+	log.Printf("unlock: secret ready on %s", cmd.String("fifo"))
 	ready()
 
-	var f *os.File
-	if f, err = os.OpenFile(cmd.String("fifo"), os.O_WRONLY, os.ModeNamedPipe); err != nil {
-		return fmt.Errorf("open %s: %s", cmd.String("fifo"), err.Error())
+	f, err := os.OpenFile(cmd.String("fifo"), os.O_WRONLY, os.ModeNamedPipe)
+	if err != nil {
+		return fmt.Errorf("open %s: %w", cmd.String("fifo"), err)
 	}
 	defer f.Close()
 
-	if _, err = f.Write(secret); err != nil {
-		return
+	_, err = f.Write(secret)
+	if err != nil {
+		return err
 	}
-	log.Print("Secret was read")
+	log.Print("unlock: secret was read")
 
 	return nil
 }

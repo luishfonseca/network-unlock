@@ -12,10 +12,10 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-func TryKillSlot(crypt, key string, slot int) (err error) {
-	var device string
-	if device, err = backingDevice(crypt); err != nil {
-		return
+func TryKillSlot(crypt, key string, slot int) error {
+	device, err := backingDevice(crypt)
+	if err != nil {
+		return err
 	}
 
 	if output, err := exec.Command(
@@ -29,10 +29,10 @@ func TryKillSlot(crypt, key string, slot int) (err error) {
 	return nil
 }
 
-func AddKey(crypt, newKey, key string, slot int, in []byte) (err error) {
-	var device string
-	if device, err = backingDevice(crypt); err != nil {
-		return
+func AddKey(crypt, newKey, key string, slot int, in []byte) error {
+	device, err := backingDevice(crypt)
+	if err != nil {
+		return err
 	}
 
 	cmd := exec.Command(
@@ -54,10 +54,11 @@ func AddKey(crypt, newKey, key string, slot int, in []byte) (err error) {
 	return nil
 }
 
-func backingDevice(mapperDevice string) (_ string, err error) {
+func backingDevice(mapperDevice string) (string, error) {
 	var st unix.Stat_t
-	if err = unix.Stat(mapperDevice, &st); err != nil {
-		return "", fmt.Errorf("stat %s: %s", mapperDevice, err.Error())
+	err := unix.Stat(mapperDevice, &st)
+	if err != nil {
+		return "", fmt.Errorf("stat %s: %w", mapperDevice, err)
 	}
 
 	backing := fmt.Sprintf("/sys/dev/block/%d:%d/slaves",
@@ -65,9 +66,9 @@ func backingDevice(mapperDevice string) (_ string, err error) {
 		unix.Minor(st.Rdev),
 	)
 
-	var entries []os.DirEntry
-	if entries, err = os.ReadDir(backing); err != nil {
-		return "", fmt.Errorf("read_dir %s: %s", backing, err.Error())
+	entries, err := os.ReadDir(backing)
+	if err != nil {
+		return "", fmt.Errorf("readdir %s: %w", backing, err)
 	}
 
 	if len(entries) != 1 {

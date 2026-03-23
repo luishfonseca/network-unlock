@@ -8,7 +8,7 @@ import (
 	"github.com/urfave/cli/v3"
 )
 
-func Cleanup(ctx context.Context, cmd *cli.Command) (err error) {
-	log.Print("Clearing key from LUKS slot 7")
+func Cleanup(ctx context.Context, cmd *cli.Command) error {
+	log.Printf("cleanup: clearing key from LUKS slot %d", cmd.Int("luks-slot"))
 	return lib.TryKillSlot(cmd.String("luks-crypt"), cmd.String("luks-key"), cmd.Int("luks-slot"))
 }
