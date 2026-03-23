@@ -4,7 +4,6 @@ import (
 	"context"
 	"log"
 	"os"
-	"os/exec"
 	"time"
 
 	"github.com/luishfonseca/network-unlock/cmd"
@@ -63,13 +62,6 @@ func main() {
 						Aliases:  []string{"pint"},
 					},
 					&cli.StringFlag{
-						Name: "cryptsetup",
-						Validator: func(s string) error {
-							_, err := exec.LookPath(s)
-							return err
-						},
-					},
-					&cli.StringFlag{
 						Name:  "crypt",
 						Value: "/dev/mapper/root_crypt",
 					},
@@ -114,6 +106,25 @@ func main() {
 					&cli.StringFlag{
 						Name:  "boot",
 						Value: "/sysroot/boot",
+					},
+				},
+			},
+			{
+				Name:    "cleanup",
+				Aliases: []string{"c"},
+				Action:  cmd.Cleanup,
+				Flags: []cli.Flag{
+					&cli.StringFlag{
+						Name:  "crypt",
+						Value: "/dev/mapper/root_crypt",
+					},
+					&cli.StringFlag{
+						Name:  "luks-key",
+						Value: "/recovery/root.key",
+					},
+					&cli.IntFlag{
+						Name:  "luks-slot",
+						Value: 7,
 					},
 				},
 			},

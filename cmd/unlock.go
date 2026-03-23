@@ -37,7 +37,7 @@ func Unlock(ctx context.Context, cmd *cli.Command) (err error) {
 
 	log.Printf("Retrieving secret share from %s", cmdIP(cmd, "peer-public"))
 	var shareA []byte
-	if shareA, err = remoteSecret(
+	if shareA, err = remoteShare(
 		cmdIP(cmd, "self-external"),
 		cmdIP(cmd, "peer-public"),
 		cmd.Uint16("port"),
@@ -47,12 +47,18 @@ func Unlock(ctx context.Context, cmd *cli.Command) (err error) {
 	}
 
 	var shareB []byte
-	if shareB, err = os.ReadFile(fmt.Sprintf("%s/share.key", cmd.String("boot"))); err != nil {
+	sharePath := fmt.Sprintf("%s/share.key", cmd.String("boot"))
+	defer os.Remove(sharePath)
+	if shareB, err = os.ReadFile(sharePath); err != nil {
 		return
 	}
 
 	secret := make([]byte, len(shareA))
 	subtle.XORBytes(secret, shareA, shareB)
+
+	// clean shares from memory
+	subtle.XORBytes(shareA, shareA, shareA)
+	subtle.XORBytes(shareB, shareB, shareB)
 
 	log.Printf("Secret is ready on %s", cmd.String("fifo"))
 	ready()
@@ -66,22 +72,32 @@ func Unlock(ctx context.Context, cmd *cli.Command) (err error) {
 	if _, err = f.Write(secret); err != nil {
 		return
 	}
-
 	log.Print("Secret was read")
+
+	// clean secret from memory
+	subtle.XORBytes(secret, secret, secret)
+
 	return nil
 }
 
-func remoteSecret(from, to net.IP, port uint16, boot string) (_ []byte, err error) {
+func remoteShare(from, to net.IP, port uint16, boot string) (_ []byte, err error) {
 	var cert, key, peer []byte
-	if cert, err = os.ReadFile(fmt.Sprintf("%s/self.crt", boot)); err != nil {
+
+	certPath := fmt.Sprintf("%s/self.crt", boot)
+	defer os.Remove(certPath)
+	if cert, err = os.ReadFile(certPath); err != nil {
 		return
 	}
 
-	if key, err = os.ReadFile(fmt.Sprintf("%s/self.key", boot)); err != nil {
+	keyPath := fmt.Sprintf("%s/self.key", boot)
+	defer os.Remove(keyPath)
+	if key, err = os.ReadFile(keyPath); err != nil {
 		return
 	}
 
-	if peer, err = os.ReadFile(fmt.Sprintf("%s/peer.crt", boot)); err != nil {
+	peerPath := fmt.Sprintf("%s/peer.crt", boot)
+	defer os.Remove(peerPath)
+	if peer, err = os.ReadFile(peerPath); err != nil {
 		return
 	}
 

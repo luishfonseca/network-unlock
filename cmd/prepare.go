@@ -1,7 +1,6 @@
 package cmd
 
 import (
-	"bytes"
 	"context"
 	"crypto/rand"
 	"crypto/sha256"
@@ -11,13 +10,9 @@ import (
 	"log"
 	"net"
 	"os"
-	"os/exec"
-	"path/filepath"
-	"strconv"
 
 	"github.com/luishfonseca/network-unlock/lib"
 	"github.com/urfave/cli/v3"
-	"golang.org/x/sys/unix"
 )
 
 func Prepare(ctx context.Context, cmd *cli.Command) (err error) {
@@ -63,68 +58,18 @@ func Prepare(ctx context.Context, cmd *cli.Command) (err error) {
 		}
 	}
 
-	if cmd.String("cryptsetup") == "" {
-		log.Print("No cryptsetup binary provided, skipping enrollment...")
-		return
-	}
-
-	var crypt string
-	if crypt, err = backingDevice(cmd.String("crypt")); err != nil {
-		return
-	}
-
 	secret := make([]byte, cmd.Int("random-bytes"))
 	if n := subtle.XORBytes(secret, shareA, shareB); n < cmd.Int("random-bytes") {
 		return fmt.Errorf("XOR of secret shares is too small: %d < %d", n, cmd.Int("random-bytes"))
 	}
 
-	return enrollLUKS(cmd.String("cryptsetup"), crypt, cmd.String("luks-key"), secret, cmd.Int("luks-slot"))
-}
-
-func backingDevice(mapperDevice string) (_ string, err error) {
-	var st unix.Stat_t
-	if err = unix.Stat(mapperDevice, &st); err != nil {
-		return
-	}
-
-	backing := fmt.Sprintf("/sys/dev/block/%d:%d/slaves",
-		unix.Major(st.Rdev),
-		unix.Minor(st.Rdev),
-	)
-
-	var entries []os.DirEntry
-	if entries, err = os.ReadDir(backing); err != nil {
-		return
-	}
-
-	if len(entries) != 1 {
-		return "", fmt.Errorf("expected 1 slave device, got %d", len(entries))
-	}
-
-	return filepath.Join("/dev", entries[0].Name()), nil
-}
-
-func enrollLUKS(cryptsetup, device, luksKey string, secret []byte, slot int) error {
-	if output, err := exec.Command(
-		cryptsetup, "luksKillSlot", device, strconv.Itoa(slot),
-		"--batch-mode",
-		"--key-file", luksKey,
-	).CombinedOutput(); err != nil {
+	if output, err := lib.KillSlot(cmd.String("crypt"), cmd.String("luks-key"), cmd.Int("luks-slot")); err != nil {
 		log.Print(string(output))
+		// keep going
 	}
 
-	log.Printf("Enrolling unlock key in LUKS slot %d", slot)
-
-	cmd := exec.Command(
-		cryptsetup, "luksAddKey", device,
-		"--batch-mode",
-		"--new-keyfile", "-",
-		"--key-file", luksKey,
-		"--key-slot", strconv.Itoa(slot),
-	)
-	cmd.Stdin = bytes.NewReader(secret)
-
-	if output, err := cmd.CombinedOutput(); err != nil {
+	log.Printf("Enrolling unlock key in LUKS slot %d", cmd.Int("luks-slot"))
+	if output, err := lib.AddKey(cmd.String("crypt"), "-", cmd.String("luks-key"), cmd.Int("luks-slot"), secret); err != nil {
 		log.Print(string(output))
 		return err
 	}
