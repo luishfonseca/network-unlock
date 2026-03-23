@@ -62,7 +62,7 @@ func main() {
 						Aliases:  []string{"pint"},
 					},
 					&cli.StringFlag{
-						Name:  "crypt",
+						Name:  "luks-crypt",
 						Value: "/dev/mapper/root_crypt",
 					},
 					&cli.StringFlag{
@@ -115,7 +115,7 @@ func main() {
 				Action:  cmd.Cleanup,
 				Flags: []cli.Flag{
 					&cli.StringFlag{
-						Name:  "crypt",
+						Name:  "luks-crypt",
 						Value: "/dev/mapper/root_crypt",
 					},
 					&cli.StringFlag{

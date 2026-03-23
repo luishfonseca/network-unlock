@@ -63,13 +63,13 @@ func Prepare(ctx context.Context, cmd *cli.Command) (err error) {
 		return fmt.Errorf("XOR of secret shares is too small: %d < %d", n, cmd.Int("random-bytes"))
 	}
 
-	if output, err := lib.KillSlot(cmd.String("crypt"), cmd.String("luks-key"), cmd.Int("luks-slot")); err != nil {
+	if output, err := lib.KillSlot(cmd.String("luks-crypt"), cmd.String("luks-key"), cmd.Int("luks-slot")); err != nil {
 		log.Print(string(output))
 		// keep going
 	}
 
 	log.Printf("Enrolling unlock key in LUKS slot %d", cmd.Int("luks-slot"))
-	if output, err := lib.AddKey(cmd.String("crypt"), "-", cmd.String("luks-key"), cmd.Int("luks-slot"), secret); err != nil {
+	if output, err := lib.AddKey(cmd.String("luks-crypt"), "-", cmd.String("luks-key"), cmd.Int("luks-slot"), secret); err != nil {
 		log.Print(string(output))
 		return err
 	}
