@@ -24,7 +24,8 @@ sequenceDiagram
 
 ## Threat Model
 
-- Internal network is trusted, nodes are not. However, a compromised network unlock server won't collude with a network attacker.
+- Internal network is trusted, e.g. VPN mesh, nodes are not.
+- A compromised network unlock server won't collude with an external attacker.
 - Attacker has full access to the public network.
 - Attacker has eventual access to the disk and can recover any deleted file.
 
