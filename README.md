@@ -1,4 +1,4 @@
-# Network Unlock: Unnatended disk decryption over mTLS
+# Network Unlock: Unattended disk decryption over mTLS
 ```mermaid
 sequenceDiagram
     participant Server
