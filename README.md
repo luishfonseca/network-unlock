@@ -17,7 +17,7 @@ sequenceDiagram
     destroy Boot
     Boot-->>Client: Nb, CERT,<br>  KEY, CA
     Client->>Server: Unlock() over mTLS<br>(require client cert without verifying)
-    Note over Server: If within TTL, compare cert<br>against hash(CERT), and<br>stored and new sourceIPs<br>against subjectAltName
+    Note over Server: If within TTL and no<br>previous hit, compare cert<br>against hash(CERT), and<br>stored and new sourceIPs<br>against subjectAltName
     Server-->>Client: Na
     Note over Client: Unlock disk with<br>Na XOR Nb
 ```
