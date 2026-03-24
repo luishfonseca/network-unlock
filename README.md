@@ -1,4 +1,4 @@
-# Network Unlock: Remote LUKS disk decryption over mTLS
+# Network Unlock: Unnatended disk decryption over mTLS
 ```mermaid
 sequenceDiagram
     participant Server
