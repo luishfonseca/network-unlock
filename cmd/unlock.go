@@ -17,6 +17,9 @@ import (
 )
 
 func Unlock(ctx context.Context, cmd *cli.Command) error {
+	// sd_notify(READY) tells systemd-cryptsetup the FIFO is available to read.
+	// The deferred call ensures we notify even on error paths, so cryptsetup
+	// doesn't hang waiting for us forever (it will just fail to read the key).
 	var once sync.Once
 	ready := func() {
 		once.Do(func() {
@@ -39,6 +42,8 @@ func Unlock(ctx context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("mkfifo %s: %w", cmd.String("fifo"), err)
 	}
 
+	// Read and delete credentials eagerly -- they're ephemeral and should not
+	// survive on the unencrypted boot partition longer than necessary.
 	certPath := fmt.Sprintf("%s/self.crt", cmd.String("dir"))
 	defer os.Remove(certPath)
 	cert, err := os.ReadFile(certPath)
@@ -86,6 +91,8 @@ func Unlock(ctx context.Context, cmd *cli.Command) error {
 	defer subtle.XORBytes(secret, secret, secret)
 	subtle.XORBytes(secret, shareA, shareB)
 
+	// Notify *before* opening the FIFO for writing -- the open() blocks until
+	// systemd-cryptsetup opens it for reading, so sd_notify must come first.
 	log.Printf("unlock: secret ready on %s", cmd.String("fifo"))
 	ready()
 

@@ -12,6 +12,9 @@ import (
 	"net/http"
 )
 
+// Register deposits a secret share on the server over the trusted internal network.
+// It binds to `from` so the server can later verify our internal IP during unlock.
+// Returns the server's certificate for mTLS pinning.
 func Register(ctx context.Context, from net.IP, addr string, fingerprint [32]byte, secret []byte) ([]byte, error) {
 	secretBuf := bytes.NewBuffer(bytes.Clone(secret))
 	fp := hex.EncodeToString(fingerprint[:])
@@ -46,6 +49,9 @@ func Register(ctx context.Context, from net.IP, addr string, fingerprint [32]byt
 	return body, nil
 }
 
+// Unlock retrieves the server's secret share over mTLS.
+// `peer` is the server's certificate obtained during registration -- used as
+// the sole CA root, effectively pinning the server's identity.
 func Unlock(ctx context.Context, from net.IP, addr string, cert, key, peer []byte) ([]byte, error) {
 	tlsCert, err := tls.X509KeyPair(cert, key)
 	if err != nil {

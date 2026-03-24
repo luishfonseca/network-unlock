@@ -33,6 +33,9 @@ var (
 	stored map[Fingerprint]*Entry = map[Fingerprint]*Entry{}
 )
 
+// ServeRegister runs on the trusted internal network over plain HTTP.
+// Clients deposit their secret share here before rebooting; the server
+// returns its own certificate so the client can pin it for the mTLS unlock.
 func ServeRegister(ctx context.Context, cert tls.Certificate, addr string, v6 bool) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/register/", func(w http.ResponseWriter, r *http.Request) {
@@ -64,6 +67,8 @@ func ServeRegister(ctx context.Context, cert tls.Certificate, addr string, v6 bo
 			return
 		}
 
+		// Reject duplicates: each fingerprint is single-use, so a second
+		// registration with the same fingerprint means something is wrong.
 		mu.Lock()
 		if _, exists := stored[Fingerprint(fp)]; exists {
 			mu.Unlock()
@@ -102,6 +107,9 @@ func ServeRegister(ctx context.Context, cert tls.Certificate, addr string, v6 bo
 	return http.Serve(ln, mux)
 }
 
+// ServeUnlock runs on the external/public network over mTLS.
+// The client authenticates with the ephemeral cert it generated during prepare;
+// the server identifies it by the cert's fingerprint and returns the stored share.
 func ServeUnlock(ctx context.Context, ttl time.Duration, cert tls.Certificate, addr string, v6 bool) error {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/unlock", func(w http.ResponseWriter, r *http.Request) {
@@ -113,6 +121,8 @@ func ServeUnlock(ctx context.Context, ttl time.Duration, cert tls.Certificate, a
 		cert := r.TLS.PeerCertificates[0]
 		fp := sha256.Sum256(cert.Raw)
 
+		// Delete-on-read: each share can only be retrieved once.
+		// This limits the window for replay if the TLS session is somehow compromised.
 		mu.Lock()
 		entry, found := stored[fp]
 		if found {
@@ -136,6 +146,10 @@ func ServeUnlock(ctx context.Context, ttl time.Duration, cert tls.Certificate, a
 			return
 		}
 
+		// The client's cert was issued with its internal + public IPs as SANs.
+		// Verify that the IPs the server has actually seen (registration source
+		// and current connection source) match those claimed SANs -- this binds
+		// the cert to the network identity observed by the server on both networks.
 		remoteAddrs := []net.IP{remote, entry.remote}
 		certAddrs := slices.Clone(cert.IPAddresses)
 		if !equalAddrs(remoteAddrs, certAddrs) {
@@ -162,8 +176,11 @@ func ServeUnlock(ctx context.Context, ttl time.Duration, cert tls.Certificate, a
 		Handler: mux,
 		TLSConfig: &tls.Config{
 			Certificates: []tls.Certificate{cert},
-			ClientAuth:   tls.RequireAnyClientCert,
-			MinVersion:   tls.VersionTLS13,
+			// RequireAnyClientCert, not RequireAndVerify -- the client certs are
+			// self-signed, so there's no CA to verify against. Authentication is
+			// done by matching the cert fingerprint to a registered entry instead.
+			ClientAuth: tls.RequireAnyClientCert,
+			MinVersion: tls.VersionTLS13,
 		},
 	}).ServeTLS(ln, "", "")
 }
@@ -183,6 +200,9 @@ func CleanupEntries(ttl time.Duration) int {
 	return count
 }
 
+// listen creates a TCP listener with IP_FREEBIND / IPV6_FREEBIND so the server
+// can bind to an address before the interface is fully configured. This lets the
+// service start early at boot, even before the network stack has assigned IPs.
 func listen(ctx context.Context, addr string, v6 bool) (net.Listener, error) {
 	var network string
 	if v6 {

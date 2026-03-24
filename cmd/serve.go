@@ -18,6 +18,8 @@ func Serve(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
+	// Two listeners on different networks: register (internal, plain HTTP) and
+	// unlock (external, mTLS). If either fails, we tear down both.
 	errCh := make(chan error, 2)
 	childCtx, cancel := context.WithCancel(ctx)
 	defer cancel()

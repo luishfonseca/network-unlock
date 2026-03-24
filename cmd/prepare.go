@@ -37,9 +37,12 @@ func Prepare(ctx context.Context, cmd *cli.Command) error {
 		return err
 	}
 
+	// Secret sharing: generate two random shares (A, B) such that the actual
+	// LUKS key is A XOR B. Share A goes to the server, share B stays on the
+	// local boot partition. Neither share alone reveals the key.
 	fp := sha256.Sum256(cert.Certificate[0])
 	shareA := make([]byte, cmd.Int("random-bytes"))
-	defer subtle.XORBytes(shareA, shareA, shareA)
+	defer subtle.XORBytes(shareA, shareA, shareA) // zero on exit to limit secret lifetime in memory
 	_, err = rand.Read(shareA)
 	if err != nil {
 		return err
@@ -82,11 +85,15 @@ func Prepare(ctx context.Context, cmd *cli.Command) error {
 		return fmt.Errorf("xor of secret shares too small: %d < %d", n, cmd.Int("random-bytes"))
 	}
 
+	// Clear any previous ephemeral key from the slot before enrolling the new one.
+	// This is idempotent -- TryKillSlot succeeds even if the slot is already empty.
 	err = lib.TryKillSlot(cmd.String("luks-crypt"), cmd.String("luks-key"), cmd.Int("luks-slot"))
 	if err != nil {
 		return err
 	}
 
+	// Enroll A XOR B as an ephemeral LUKS key. After the next boot unlocks with
+	// it, cleanup will remove it -- so each boot cycle gets a fresh key.
 	log.Printf("prepare: enrolling unlock key in LUKS slot %d", cmd.Int("luks-slot"))
 	return lib.AddKey(cmd.String("luks-crypt"), "-", cmd.String("luks-key"), cmd.Int("luks-slot"), secret)
 }

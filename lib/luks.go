@@ -12,6 +12,9 @@ import (
 	"golang.org/x/sys/unix"
 )
 
+// TryKillSlot removes a LUKS key slot, ignoring errors (the slot may already
+// be empty). This is intentionally best-effort -- failing to clear a stale slot
+// is not fatal, and we'd rather continue than leave the system unbootable.
 func TryKillSlot(crypt, key string, slot int) error {
 	device, err := backingDevice(crypt)
 	if err != nil {
@@ -54,6 +57,8 @@ func AddKey(crypt, newKey, key string, slot int, in []byte) error {
 	return nil
 }
 
+// backingDevice resolves /dev/mapper/X → /dev/sdY via sysfs. cryptsetup needs
+// the underlying block device, not the dm-crypt mapper device, for key management.
 func backingDevice(mapperDevice string) (string, error) {
 	var st unix.Stat_t
 	err := unix.Stat(mapperDevice, &st)

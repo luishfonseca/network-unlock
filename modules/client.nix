@@ -72,6 +72,10 @@ in {
     ];
 
     systemd.services = {
+      # ExecStart=cleanup, ExecStop=prepare looks backwards but is intentional:
+      # on boot (start), we clean up the ephemeral key that was just used.
+      # On shutdown (stop), we prepare credentials for the *next* boot.
+      # RemainAfterExit keeps the unit "active" in between so stop runs on shutdown.
       network-unlock-prepare = {
         wantedBy = ["multi-user.target"];
         wants = cfg.units;

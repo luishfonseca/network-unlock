@@ -102,6 +102,6 @@ func generateRandomSerial() (big.Int, error) {
 	}
 
 	serial.SetBytes(bytes)
-	serial = *serial.Rsh(&serial, 1)
+	serial = *serial.Rsh(&serial, 1) // ensure positive (RFC 5280 requires non-negative serial)
 	return serial, nil
 }
