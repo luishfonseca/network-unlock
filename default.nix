@@ -1,7 +1,7 @@
 {buildGoModule}:
 buildGoModule rec {
   pname = "network-unlock";
-  version = "0.1.0";
+  version = "0.1.1";
   src = ./.;
   vendorHash = "sha256-bk509AIyOD7vX8sgYsRzWHohaq9CmrdPIDOvV9dNmDk=";
 

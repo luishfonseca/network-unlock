@@ -12,8 +12,12 @@ import (
 )
 
 func Serve(ctx context.Context, cmd *cli.Command) error {
-	log.Printf("serve: generating certificate for %s", cmdIP(cmd, "public"))
-	cert, err := lib.GenerateCertificate("network-unlock-server", []net.IP{cmdIP(cmd, "public")})
+	ips := []net.IP{cmdIP(cmd, "public")}
+	if cmdIP(cmd, "external") != nil {
+		ips = append(ips, cmdIP(cmd, "external"))
+	}
+
+	cert, err := lib.GenerateCertificate("network-unlock-server", ips)
 	if err != nil {
 		return err
 	}
@@ -34,13 +38,7 @@ func Serve(ctx context.Context, cmd *cli.Command) error {
 
 	ttl := cmd.Duration("ttl")
 	go func() {
-		var addr net.IP
-		if cmdIP(cmd, "external") != nil {
-			addr = cmdIP(cmd, "external")
-		} else {
-			addr = cmdIP(cmd, "public")
-		}
-
+		addr := ips[len(ips)-1] // prefer external, fallback to public if not set
 		external := fmt.Sprintf("%s:%d", addr, cmd.Uint16("port"))
 		log.Printf("serve: unlock server starting on %s", external)
 		errCh <- lib.ServeUnlock(childCtx, ttl, cert, external, addr.To4() == nil)
